@@ -26,3 +26,11 @@ export function getIpMsg(params = {}) {
         params
     })
 }
+//获取当前ip的天气
+export function getWeathers(params={}){
+    return createServe({
+        method: "GET",
+        url: '/getWeather',
+        params
+    })
+}

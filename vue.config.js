@@ -28,6 +28,15 @@ let devProxy = {
       '/getIpMsg': ''
     },
   },
+  //获取天气
+  '/getWeathers': {
+    target: process.env.VUE_APP_6,
+    ws: true,
+    changeOrigin: true,
+    pathRewrite: {
+      '/getWeathers': ''
+    },
+  },
 };
 const { defineConfig } = require('@vue/cli-service')
 module.exports = defineConfig({

@@ -58,7 +58,10 @@
       </div>
       <div class="header_right">
         <div class="header_right_jiao"></div>
-        <div class="header_left_weather">{{ weather.wea }} / {{ weather.tem }}℃</div>
+        <div class="header_left_weather">
+          <span>{{ userMsg.city }}</span>
+          {{ weather.wea }} / {{ weather.tem }}℃
+        </div>
         <div class="header_right_line"></div>
       </div>
     </div>
@@ -72,32 +75,57 @@
       </el-icon>
     </div>
 
-    <!--全球柱状图-->
-    <!-- <div class="sphereDataDiv">
-      <p>累计确诊前{{sliceNum}}国家</p>
-      <div class="histogramDivDiv">
-        <div id="histogramDiv"></div>
-      </div>
-    </div> -->
 
-    <!--数字盒子-->
-    <div class="numDiv">
-      <div class="addconDiv">
-        <div class="tit">全球现存确诊</div>
-        <addNumber class="certain-div" :value="certain" :time="10" :thousandSign="true" />
-        <div class="day-tit">今日{{ othertotal.certain_inc }}</div>
+    <div class="left_bg">
+      <!--全球柱状图-->
+      <div class="sphereDataDiv">
+        <div class="sphereDataDiv_title">
+          累计全球确诊人数前{{ sliceNum }}国家
+        </div>
+        <!-- <div class="histogramDivDiv">
+          <div id="histogramDiv"></div>
+        </div> -->
+        <div w50rem h24rem p3 flex="~ col" justify-center items-center bg-dark
+          style="height: 90%;width: 100%;margin: 10px 0;">
+          <dv-scroll-ranking-board :config="top50worldList" style="width:100%;height:100%;" />
+        </div>
       </div>
-      <div class="addcureDiv">
-        <div class="tit">全球累计治愈</div>
-        <addNumber class="addcure-div" :value="addcure" :time="10" :thousandSign="true" />
-        <div class="day-tit">今日{{ othertotal.recure_inc }}</div>
-      </div>
-      <div class="addDieDiv">
-        <div class="tit">全球累计死亡</div>
-        <addNumber class="addDie-div" :value="addDie" :time="10" :thousandSign="true" />
-        <div class="day-tit">今日{{ othertotal.die_inc }}</div>
+      <!--全过柱状图-->
+      <div class="sphereDataDiv1">
+        <div class="sphereDataDiv1_title">累计全国确诊人数前3城市</div>
+        <div class="histogramDivDiv1">
+          <div id="histogramDiv1"></div>
+        </div>
       </div>
     </div>
+
+
+    <!--数字盒子-->
+    <div class="right_bg">
+      <div class="numDiv">
+        <div class="numDiv_title">
+          累计全球确诊,治愈，死亡数
+        </div>
+        <div class="numDiv_border">
+          <div class="addconDiv">
+            <div class="tit">确诊</div>
+            <addNumber class="certain-div" :value="certain" :time="10" :thousandSign="true" />
+            <!-- <div class="day-tit">今日{{ othertotal.certain_inc }}</div> -->
+          </div>
+          <div class="addcureDiv">
+            <div class="tit">治愈</div>
+            <addNumber class="addcure-div" :value="addcure" :time="10" :thousandSign="true" />
+            <!-- <div class="day-tit">今日{{ othertotal.recure_inc }}</div> -->
+          </div>
+          <div class="addDieDiv">
+            <div class="tit">死亡</div>
+            <addNumber class="addDie-div" :value="addDie" :time="10" :thousandSign="true" />
+            <!-- <div class="day-tit">今日{{ othertotal.die_inc }}</div> -->
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <div class="components">
       <!--点的标签-->
@@ -128,7 +156,8 @@ import {
   watch,
   onMounted,
   getCurrentInstance,
-  toRef
+  toRef,
+  reactive
 } from 'vue';
 import * as THREE from "three";
 import {
@@ -207,9 +236,14 @@ let version: any = ref(PK.version), //系统版本号
   userMsg: any = ref({}), //使用者信息
   currentProvinceData: any = ref({}), //当前省数据
   isProvinceEchartDrawer = ref(false), //省内图表对话框
-  nowDateref:any = ref(""),
-  nowTimeref:any = ref(""),
-  weather:any = ref({});
+  nowDateref: any = ref(""),
+  nowTimeref: any = ref(""),
+  top50worldList: any = reactive({
+    data: [],
+    rowNum: 10,
+    unit: '人'
+  }),
+  weather: any = ref({});
 onMounted(() => {
   judgeDevice(); //判断设备
   setInterval(getNowTime, 500);
@@ -651,12 +685,22 @@ function onMousemove(e: any) {
 //初始化图表
 function initEchart() {
   let sortList: any = sortFun(sphereData.value); //球体数据排序
-  histogramChartFun(sortList.slice(0, sliceNum)); //绘制国家排名柱状图
+  top50worldList.data = sortFun(sphereData.value).slice(0, sliceNum);
+  console.log(top50worldList)
+  //histogramChartFun(sortList.slice(0, sliceNum)); //绘制国家排名柱状图
+  let sortList1: any = allData.value.list;
+  sortList1.sort(sortValue)
+  sortList1 = sortList1.splice(0, 3)
+  // console.log(sortList1, 'nnnn')
+  drawEchart(sortList1)
   certain.value = Number(allData.value.othertotal.certain); //获取确诊值
   addcure.value = Number(allData.value.othertotal.recure); ///获取治愈值
   addDie.value = Number(allData.value.othertotal.die); ///获取死亡值
 }
-
+//排序
+function sortValue(a: any, b: any) {
+  return b.value - a.value
+}
 //排序(冒泡法)
 function sortFun(arr: any) {
   arr.forEach((a: any, index: number) => {
@@ -670,78 +714,117 @@ function sortFun(arr: any) {
   });
   return arr;
 };
-
-//国家排名柱状图
-function histogramChartFun(list: any) {
-  let chartDom = document.getElementById("histogramDiv");
-  (histogramChart) && (histogramChart.dispose()); //销毁实例
+function drawEchart(list: any) {
+  let chartDom = document.getElementById("histogramDiv1");
+  (histogramChart) && (histogramChart.dispose());
   histogramChart = echarts.init(chartDom);
   let option: any = {
-    backgroundColor: "",
-    title: {
-      left: "center",
-      top: "3%",
-      textStyle: {
-        color: "#fff",
-      },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
     },
     grid: {
-      top: "0%",
-      left: "25%",
-      right: "5%",
-      bottom: "0%",
+      top: '15%',
+      right: '10%',
+      left: '20%',
+      bottom: '12%'
     },
-    xAxis: {
-      type: "value",
-      show: false,
-    },
-    yAxis: {
-      type: "category",
+    xAxis: [{
+      type: 'category',
+      data: [],
+      axisLine: {
+        lineStyle: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      },
       axisLabel: {
-        color: "#fff",
+        margin: 10,
+        color: '#e2e9ff',
+        textStyle: {
+          fontSize: 14
+        },
       },
-      data: [],
-    },
-    tooltip: {
-      trigger: "axis",
-      axisPointer: {
-        type: "shadow",
+    }],
+    yAxis: [{
+      name: '单位：人',
+      axisLabel: {
+        formatter: '{value}',
+        color: '#e2e9ff',
       },
-      backgroundColor: "rgba(0,0,0,.5)",
-      textStyle: {
-        color: "#fff",
-        fontWeight: "bolder"
+      axisLine: {
+        show: false,
+        lineStyle: {
+          color: 'rgba(255,255,255,1)'
+        }
       },
-      borderWidth: "0",
-    },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(255,255,255,0.12)'
+        }
+      }
+    }],
     series: [{
+      type: 'bar',
       data: [],
-      type: "bar",
-      showBackground: true,
-      backgroundStyle: {
-        color: "rgba(255, 185, 185,.1)",
-      },
+      barWidth: '20px',
       itemStyle: {
-        color: "#ff6a6a",
+        normal: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+            offset: 0,
+            color: 'rgba(0,244,255,1)' // 0% 处的颜色
+          }, {
+            offset: 1,
+            color: 'rgba(0,77,167,1)' // 100% 处的颜色
+          }], false),
+          barBorderRadius: [30, 30, 30, 30],
+          shadowColor: 'rgba(0,160,221,1)',
+          shadowBlur: 4,
+        }
       },
       label: {
-        color: "#fff",
-        fontWeight: "bolder",
-        show: true,
-        align: "left",
-        formatter: "{c}",
-      },
-    },],
-  };
-  list.forEach((l: any) => {
-    option.yAxis.data.push(l.name);
-    option.series[0].data.push(l.value);
-  });
-  option.yAxis.data.reverse();
-  option.series[0].data.reverse();
+        normal: {
+          show: true,
+          lineHeight: 30,
+          width: 90,
+          height: 30,
+          backgroundColor: 'rgba(0,160,221,0.1)',
+          borderRadius: 200,
+          position: ['-8', '-60'],
+          distance: 1,
+          formatter: [
+            '    {d|●}',
+            ' {a|{c}}     \n',
+            '    {b|}'
+          ].join(','),
+          rich: {
+            d: {
+              color: '#3CDDCF',
+            },
+            a: {
+              color: '#fff',
+              align: 'center',
+            },
+            b: {
+              width: 1,
+              height: 30,
+              borderWidth: 1,
+              borderColor: '#234e6c',
+              align: 'left'
+            },
+          }
+        }
+      }
+    }]
+  }
+  list.forEach((item: any) => {
+    option.xAxis[0].data.push(item.name)
+    option.series[0].data.push(item.value)
+  })
+  console.log(option)
   option && histogramChart.setOption(option);
 }
-
 //获取用户ip信息
 function getLocationMsg() {
   if (process.env.NODE_ENV !== "production") {
@@ -758,10 +841,10 @@ function getLocationMsg() {
 
 };
 //获取当前地区的天气
- function getWeather(){
+function getWeather() {
   if (process.env.NODE_ENV !== "production") {
     let jsonpUrl: any = process.env.VUE_APP_6;
-    createServe(jsonpUrl).then(res =>{
+    createServe(jsonpUrl).then(res => {
       weather.value = res.data
     })
 
@@ -960,6 +1043,7 @@ async function downloadReport() {
       left: 50%;
       top: 0px;
       transform: translateX(-50%);
+
       .header_mid_top {
         position: absolute;
         width: 353.68px;
@@ -996,7 +1080,8 @@ async function downloadReport() {
         background: url(../assets/images/Union\ \(3\).png) no-repeat;
         background-size: 100%;
       }
-      .header_mid_lline{
+
+      .header_mid_lline {
         position: absolute;
         width: 294px;
         height: 9px;
@@ -1006,7 +1091,8 @@ async function downloadReport() {
         opacity: 0.8;
         background: url(../assets/images/Rectangle\ 793.png) no-repeat;
       }
-      .header_mid_rline{
+
+      .header_mid_rline {
         position: absolute;
         width: 294px;
         height: 9px;
@@ -1017,14 +1103,16 @@ async function downloadReport() {
         background: url(../assets/images/Rectangle\ 794.png) no-repeat;
       }
     }
-    .header_right{
+
+    .header_right {
       position: absolute;
       width: 20%;
       height: 100%;
       right: 0px;
       top: 0px;
       background: url(../assets/images/Vector\ 314.png) no-repeat;
-      .header_right_jiao{
+
+      .header_right_jiao {
         position: absolute;
         right: 14px;
         top: 18.86px;
@@ -1033,7 +1121,8 @@ async function downloadReport() {
         background: linear-gradient(110.43deg, rgba(15, 143, 252, 0) 0.34%, #0F8FFC 99%);
         background: url(../assets/images/Vector\ 319.png);
       }
-      .header_left_weather{
+
+      .header_left_weather {
         position: absolute;
         width: 150px;
         height: 32px;
@@ -1051,104 +1140,203 @@ async function downloadReport() {
     cursor: move;
   }
 
-  .sphereDataDiv {
-    pointer-events: none;
+  .left_bg {
+    height: calc(100vh - 66px);
+    width: 494px;
+    background: url(../assets/images/left.png) no-repeat;
+    background-size: 100% 100%;
     position: absolute;
-    top: 50px;
-    left: 0px;
-    height: calc(100vh - 150px);
-    width: 300px;
-    text-align: center;
+    left: 0;
+    top: 70px;
 
-    p {
-      font-size: 20px;
-      font-weight: 900;
-    }
+    .sphereDataDiv {
+      pointer-events: none;
+      position: absolute;
+      top: 20px;
+      left: 0px;
+      height: 49%;
+      width: 400px;
+      text-align: center;
+      padding: 10px 20px;
 
-    .histogramDivDiv {
-      height: calc(100% - 50px);
-      width: 100%;
-      overflow: auto;
-      pointer-events: auto;
+      .sphereDataDiv_title {
+        width: 80%;
+        height: 30px;
+        line-height: 30px;
+        background: linear-gradient(90deg, rgba(100, 134, 175, 0.31) 69.01%, rgba(2, 36, 66, 0.01) 99.99%);
+        font-size: 20px;
+        font-weight: 900;
+        border-radius: 10px;
+        text-align: left;
+        padding-left: 25px;
+      }
 
-      #histogramDiv {
-        height: 1500px;
+      .histogramDivDiv {
+        height: 100%;
         width: 100%;
+        overflow-y: scroll;
+        pointer-events: auto;
+        margin-top: 10px;
+
+        #histogramDiv {
+          height: 1500px;
+          width: 100%;
+        }
       }
+
     }
 
+    .sphereDataDiv1 {
+      pointer-events: none;
+      position: absolute;
+      top: 450px;
+      left: 0px;
+      height: 45%;
+      width: 400px;
+      text-align: center;
+      padding: 10px 20px;
+      margin-top: 10px;
+
+      .sphereDataDiv1_title {
+        width: 80%;
+        height: 30px;
+        line-height: 30px;
+        background: linear-gradient(90deg, rgba(100, 134, 175, 0.31) 69.01%, rgba(2, 36, 66, 0.01) 99.13%);
+        font-size: 20px;
+        font-weight: 900;
+        border-radius: 10px;
+        text-align: left;
+        padding-left: 25px;
+      }
+
+      .histogramDivDiv1 {
+        width: 100%;
+        height: 90%;
+        padding: 10px;
+
+        #histogramDiv1 {
+          height: 100%;
+          width: 100%;
+        }
+      }
+    }
   }
 
-  .numDiv {
+  .right_bg {
+    height: calc(100vh - 66px);
+    width: 494px;
+    background: url(../assets/images/right.png) no-repeat;
+    background-size: 100% 100%;
     position: absolute;
-    top: 50px;
-    right: 0px;
-    pointer-events: none;
-    height: calc(100% - 50px);
-    display: flex;
-    flex-direction: column;
+    right: 0;
+    top: 70px;
 
-    .addconDiv,
-    .addcureDiv,
-    .addDieDiv {
-      background-color: rgba(255, 255, 255, .1);
-      margin: auto 0px;
-      text-align: right;
-      color: #fff;
-      font-weight: 900;
-      padding: 10px 30px;
-      border-bottom-left-radius: 100px;
-      border-top-left-radius: 100px;
+    .numDiv {
+      position: absolute;
+      top: 20px;
+      right: 0px;
+      pointer-events: none;
+      height: calc(100% - 50px);
+      display: flex;
+      flex-direction: column;
+      height: 40%;
+      width: 400px;
+      padding: 10px 20px;
 
-      .tit {
+      .numDiv_title {
+        width: 80%;
+        height: 30px;
+        line-height: 30px;
+        background: linear-gradient(90deg, rgba(100, 134, 175, 0.31) 69.01%, rgba(2, 36, 66, 0.01) 99.13%);
         font-size: 20px;
+        font-weight: 900;
+        border-radius: 10px;
+        text-align: left;
+        padding-left: 25px;
       }
 
-      .certain-div,
-      .addDie-div,
-      .addcure-div {
-        font-size: 45px;
-      }
+      .numDiv_border {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        padding: 10px;
 
-      .day-tit {
-        font-size: 20px;
-      }
-    }
+        .addconDiv {
+          width: 180px;
+          height: 167px;
+          background: url(../assets/images/certain.png) no-repeat;
+          position: relative;
 
-    .addconDiv {
-      background-color: rgb(255, 216, 137, .2);
+          .certain-div {
+            position: absolute;
+            bottom: 30px;
+            left: 15px;
+          }
 
-      .tit,
-      .day-tit,
-      .certain-div {
-        color: #ffd889;
-      }
-    }
+          .tit {
+            width: 50px;
+            height: 30px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+          }
+        }
 
-    .addDieDiv {
-      background-color: rgb(255, 106, 106, .2);
+        .addcureDiv {
+          width: 180px;
+          height: 167px;
+          background: url(../assets/images/addcure.png) no-repeat;
+          position: relative;
 
-      .tit,
-      .day-tit,
-      .addDie-div {
-        color: #ff6a6a;
-      }
-    }
+          .addcure-div {
+            position: absolute;
+            bottom: 30px;
+            left: 15px;
+          }
 
-    .addcureDiv {
-      background-color: rgb(102, 246, 143, .2);
+          .tit {
+            width: 50px;
+            height: 30px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+          }
+        }
 
-      .tit,
-      .day-tit,
-      .addcure-div {
-        color: #66f68f;
+        .addDieDiv {
+          width: 180px;
+          height: 167px;
+          background: url(../assets/images/addDie.png) no-repeat;
+          position: relative;
+
+          .addDie-div {
+            position: absolute;
+            bottom: 30px;
+            left: 15px;
+          }
+
+          .tit {
+            width: 50px;
+            height: 30px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+          }
+        }
       }
     }
   }
+
 
   .set-div {
     position: absolute;
     bottom: 0px;
+    z-index: 999;
     margin: 0px 0px 20px 20px;
 
     i:hover {
